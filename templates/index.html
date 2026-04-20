@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoVault - Internal Tool</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text: #212529;
+            --primary: #0066cc;
+            --border: #cccccc;
+            --light: #f4f4f4;
+        }
+
+        body {
+            font-family: sans-serif;
+            line-height: 1.5;
+            color: var(--text);
+            background: var(--bg);
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid #000;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+        }
+
+        .tabs {
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 8px 12px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--light);
+            margin-right: 5px;
+        }
+
+        .tab.active {
+            background: #000;
+            color: #fff;
+            border-color: #000;
+        }
+
+        .panel { display: none; border: 1px solid var(--border); padding: 20px; }
+        .panel.active { display: block; }
+
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        textarea, input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border);
+            font-family: monospace;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border: 1px dashed #666;
+            display: none;
+        }
+
+        .result-box.visible { display: block; }
+        .error-text { color: red; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Crypto</h1>
+    <p>AES-128 & SHA-256 Tool</p>
+</header>
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('encrypt', event)">Encrypt</button>
+    <button class="tab" onclick="switchTab('decrypt', event)">Decrypt</button>
+    <button class="tab" onclick="switchTab('hash', event)">Hash</button>
+    <button class="tab" onclick="switchTab('compare', event)">Compare</button>
+</div>
+
+<div id="panel-encrypt" class="panel active">
+    <label>text</label>
+    <textarea id="enc-input" placeholder="Type here..."></textarea>
+    <button class="btn" onclick="doEncrypt()">Encrypt</button>
+    <div id="enc-result" class="result-box">
+        <strong>Result:</strong>
+        <div id="enc-output" style="word-break: break-all;"></div>
+    </div>
+</div>
+
+<div id="panel-decrypt" class="panel">
+    <label>Crypted text</label>
+    <textarea id="dec-input"></textarea>
+    <button class="btn" onclick="doDecrypt()">Decrypt</button>
+    <div id="dec-result" class="result-box">
+        <strong>Decrypted Text:</strong>
+        <div id="dec-output"></div>
+    </div>
+</div>
+
+<div id="panel-hash" class="panel">
+    <label>Text to Hash</label>
+    <textarea id="hash-input"></textarea>
+    <button class="btn" onclick="doHash()">Generate SHA-256</button>
+    <div id="hash-result" class="result-box">
+        <strong>Hash:</strong>
+        <div id="hash-output" style="word-break: break-all;"></div>
+    </div>
+</div>
+
+<div id="panel-compare" class="panel">
+    <label>Original Text</label>
+    <textarea id="cmp-text"></textarea>
+    <label>Hash to Check</label>
+    <input type="text" id="cmp-hash">
+    <button class="btn" onclick="doCompare()">Verify Integrity</button>
+    <div id="cmp-result" class="result-box">
+        <div id="cmp-output"></div>
+        <div id="cmp-badge"></div>
+    </div>
+</div>
+
+<script>
+    // Logic to keep the UI interactive
+    function switchTab(name, event) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById('panel-' + name).classList.add('active');
+    }
+
+    async function doEncrypt() {
+        const text = document.getElementById('enc-input').value;
+        const res = await fetch('/crypt', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text})
+        });
+        const data = await res.json();
+        const box = document.getElementById('enc-result');
+        box.classList.add('visible');
+        document.getElementById('enc-output').textContent = data.encrypted || data.error;
+    }
+
+    async function doDecrypt() {
+        const text = document.getElementById('dec-input').value;
+        const res = await fetch('/decrypt?text=' + encodeURIComponent(text));
+        const data = await res.json();
+        document.getElementById('dec-result').classList.add('visible');
+        document.getElementById('dec-output').textContent = data.decrypted || data.error;
+    }
+
+    async function doHash() {
+        const text = document.getElementById('hash-input').value;
+        const res = await fetch('/hash', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text})
+        });
+        const data = await res.json();
+        document.getElementById('hash-result').classList.add('visible');
+        document.getElementById('hash-output').textContent = data.hash;
+    }
+
+    async function doCompare() {
+        const text = document.getElementById('cmp-text').value;
+        const compare = document.getElementById('cmp-hash').value;
+        const res = await fetch('/hash', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text, compare})
+        });
+        const data = await res.json();
+        document.getElementById('cmp-result').classList.add('visible');
+        document.getElementById('cmp-output').textContent = "Hash: " + data.hash;
+        document.getElementById('cmp-badge').innerHTML = data.match ? 
+            "<b style='color:green'>MATCH</b>" : "<b style='color:red'>MODIFIED</b>";
+    }
+</script>
+</body>
+</html>
